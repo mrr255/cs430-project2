@@ -89,6 +89,42 @@ int planeIntersect(Object* object, double* rO, double* rD)
   }
 }
 
+int sphereIntersect(Object* object, double* rO, double* rD)
+{
+  double r = object->sphere.radius;
+  double* pnt = object->sphere.position;
+  // (x-h)^2 + (y-j)^2 + (z-k)^2 = r^2
+  // (rOx - t*rDx-x0)^2 + (rOy - t*rDy-y0)^2 + (rOz - t*rDz-z0)^2 = r^2
+
+  //rDx^2t^2 - 2rDxrOxt + 2rDxtx0+ rOx^2 - 2rOx x0 + x0^2
+  // + rDy^2t^2 - 2rDyrOyt + 2rDyty0+ rOy^2 - 2rOyy0 + y0^2
+  // + rDZ^2t^2 - 2rDZrOZt + 2rDZtZ0+ rOZ^2 - 2rOzz0 + z0^2
+  // - r^2 = 0
+
+  //t^2(rDx^2 + rDy^2 + rDZ^2t)
+  //+ t(- 2rDxrOx + 2rDxx0 - 2rDyrOy + 2rDyy0 - 2rDZrOZ + 2rDZZ0)
+  //+(rOx^2 - 2rOx x0 + x0^2 + rOy^2 - 2rOyy0 + y0^2 + rOZ^2 - 2rOzz0 + z0^2 - r^2) = 0
+  double a = sqr(rD[0]) + sqr(rD[1]) + sqr(rD[2]);
+  double b = -2* rD[0]* rO[0] + 2* rD[0]* pnt[0] -2* rD[1]* rO[1] + 2* rD[1]* pnt[1] -2* rD[2]* rO[2] + 2* rD[2]* pnt[2];
+  double c = sqr(rO[0]) - 2* rO[0]* pnt[0] + sqr(pnt[0]) + sqr(rO[1]) - 2* rO[1]*pnt[1] + sqr(pnt[1]) + sqr(rO[2]) - 2*rO[2]*pnt[2] + sqr(pnt[2]) - sqr(r);
+
+  double det = sqr(b) - 4 * a * c;
+  if (det < 0)
+    return -1;
+
+  det = sqrt(det);
+
+  double t0 = (-b - det) / (2*a);
+  if (t0 > 0)
+    return t0;
+
+  double t1 = (-b + det) / (2*a);
+  if (t1 > 0)
+    return t1;
+
+  return -1;
+}
+
 int raycast(Object** objects, int pxW, int pxH)
 {
   double cx = 0;
@@ -120,6 +156,7 @@ int raycast(Object** objects, int pxW, int pxH)
       normalize(rD);
       double bestT = INFINITY;
       int bestO = -1;
+      double* color;
       for (int i=0; objects[i] != 0; i += 1)
       {
 	       double t = 0;
@@ -128,8 +165,11 @@ int raycast(Object** objects, int pxW, int pxH)
           {
 	           case 0:
 	            t = planeIntersect(objects[i],rO, rD);
+              color = objects[i]->plane.color;
 	           break;
              case 1:
+              t = sphereIntersect(objects[i],rO, rD);
+              color = objects[i]->plane.color;
              break;
              case 2:
              break;
@@ -145,7 +185,9 @@ int raycast(Object** objects, int pxW, int pxH)
         }
         if (bestT > 0 && bestT != INFINITY) // Collect color data
         {
-          //image[w*row + col].r =
+          image[pxW*(pxH-y) + x].r = color[0];
+          image[pxW*(pxH-y) + x].g = color[1];
+          image[pxW*(pxH-y) + x].b = color[2];
         }
         else
         {
@@ -154,6 +196,7 @@ int raycast(Object** objects, int pxW, int pxH)
       }
       printf("\n");
   }
+
   return 0;
 }
 //Parsing JSON
