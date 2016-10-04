@@ -66,6 +66,7 @@ int main (int c, char** argv)
 {
   Object** r = parseScene(argv[1]);
   int i = 0;
+  /*
   while (r[i] != NULL)
   {
     int t = r[i]->kind;
@@ -111,7 +112,7 @@ int main (int c, char** argv)
     }
     i++;
   }
-
+*/
   int pxW = 100;
   int pxH = 100;
   Pixel* p = raycast(r,pxW,pxH);
@@ -196,8 +197,9 @@ int sphereIntersect(Object* object, double* rO, double* rD)
   double det = sqr(b) - 4 * a * c;
   //printf("%lf\n", det);
   if (det < 0)
-    det = -1*det;
-    //return -1;
+    return -1;
+    //det = -1*det;
+
 
   det = sqrt(det);
 
@@ -234,13 +236,14 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
   if(cw == 0 || ch == 0)
   {
     //ERROR
+    exit(1);
   }
   double pixHeight = ch / pxH;
   double pixWidth = cw / pxW;
   double rO[3] = {cx, cy, 0};
   Pixel* image;
   image = malloc(sizeof(Pixel) * pxW * pxH); //Prepare memory for image data
-  for (int y = 0; y < pxH; y += 1) {
+  for (int y = pxH; y > 0; y -= 1) {
     for (int x = 0; x < pxW; x += 1) {
       double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1.0};
 
@@ -261,11 +264,11 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
           {
 	           case 0:
 	            t = planeIntersect(objects[i],rO, rD);
-              printf("pl:%lf\n", t);
+              //printf("pl:%lf\n", t);
 	           break;
              case 1:
               t = sphereIntersect(objects[i],rO, rD);
-              printf("sp:%lf\n", t);
+              //printf("sp:%lf\n", t);
              break;
              case 2:
              break;
@@ -280,7 +283,7 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
           }
           i++;
         }
-        printf("best:%lf,%i\n", bestT, bestO);
+        //printf("best:%lf,%i\n", bestT, bestO);
         if (bestT > 0 && bestT != INFINITY) // Collect color data
         {
           switch(objects[bestO]->kind)
@@ -297,9 +300,9 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
              // Horrible error
               exit(1);
           }
-          image[pxH*(y) + x].r = color[0]*255;
-          image[pxH*(y) + x].g = color[1]*255;
-          image[pxH*(y) + x].b = color[2]*255;
+          image[pxH*(pxH - y-1) + x].r = color[0]*255;
+          image[pxH*(pxH - y-1) + x].g = color[1]*255;
+          image[pxH*(pxH - y-1) + x].b = color[2]*255;
           //printf("r%d\n", image[pxH*(y) + x].r);
           //printf("g%d\n", image[pxH*(y) + x].g);
           //printf("b%d\n", image[pxH*(y) + x].b);
