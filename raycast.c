@@ -64,74 +64,32 @@ static inline void normalize(double* v)
 
 int main (int c, char** argv)
 {
-  Object** r = parseScene(argv[1]);
-  int i = 0;
-  /*
-  while (r[i] != NULL)
+  if(c != 5)
   {
-    int t = r[i]->kind;
-    printf("%i\n", t);
-    if(t == 0) //plane
-    {
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->plane.color[j]);
-      }
-      printf("\n");
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->plane.position[j]);
-      }
-      printf("\n");
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->plane.normal[j]);
-      }
-      printf("\n");
-
-    }
-    else if(t == 1)
-    {
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->sphere.color[j]);
-      }
-      printf("\n");
-      for(int j = 0; j <3;j++)
-      {
-        printf("%lf ", r[i]->sphere.position[j]);
-      }
-      printf("\n");
-
-      printf("%i\n", r[i]->sphere.radius);
-    }
-    else if(t == 2)
-    {
-      printf("%lf\n", r[i]->camera.width);
-      printf("%lf\n", r[i]->camera.height);
-    }
-    i++;
+    fprintf(stderr, "Error: Invalid number of arguments\n");
+    exit(1);
   }
-*/
-  int pxW = 100;
-  int pxH = 100;
+  Object** r = parseScene(argv[3]);
+
+  int i = 0;
+  int pxW = atoi(argv[1]);
+  int pxH = atoi(argv[2]);
   Pixel* p = raycast(r,pxW,pxH);
-  int q = imageWriter(p, "hello.ppm",pxW, pxH);
+  int q = imageWriter(p, argv[4],pxW, pxH);
   return 1;
 }
 
 int imageWriter(Pixel* image, char* input, int pxW, int pxH)
 {
-  FILE* fw = fopen(input, "w"); // File Write
+  FILE* fw = fopen(input, "w"); // File Write as P3
 
   fprintf(fw, "P3\n");
   fprintf(fw, "%i ", pxH);
   fprintf(fw, "%i\n", pxW);
   fprintf(fw,"%i\n",255);
 
-  //fwrite(image,sizeof(Pixel),pxW*pxH,fw);
   int row, col;
-  for (row = 0; row < pxH; row += 1)
+  for (row = 0; row < pxH; row += 1) //itterate through image array
     {
     for (col = 0; col < pxW; col += 1)
       {
@@ -152,10 +110,10 @@ int planeIntersect(Object* object, double* rO, double* rD)
   //a*rOx + t*a*rDx - a*x0 + b*rOy + t*b*rDy - b*y0 + c*rOz + t*c*rDz - c*z0
   //t(a*rDx+ b*rDy+ c*rDz) + (a*rOx + b*roy + c*rOz - a*xO - b*yO - c*zO) = 0
   //t = -(a*rOx + b*roy + c*rOz - a*xO - b*yO - c*zO) / (a*rDx+ b*rDy+ c*rDz)
+  //form: mt+b = 0
   double m = norm[0]*rD[0] + norm[1]*rD[1] + norm[2]*rD[2];
   double b = norm[0]*rO[0] + norm[1]*rO[1] + norm[2]*rO[2] - norm[0]*pnt[0] - norm[1]*pnt[1] - norm[2]*pnt[2];
   double t = (-1*b)/m;
-  //printf("%lf\n", t);
   if(t >= 0)
   {
     return t;
@@ -170,10 +128,6 @@ int sphereIntersect(Object* object, double* rO, double* rD)
 {
   double r = object->sphere.radius;
   double* pnt = object->sphere.position;
-  for( int i=0;i<3;i++)
-  {
-    //printf("%lf\n", pnt[i]);
-  }
   // (x-h)^2 + (y-j)^2 + (z-k)^2 = r^2
   // (rOx - t*rDx-x0)^2 + (rOy - t*rDy-y0)^2 + (rOz - t*rDz-z0)^2 = r^2
 
@@ -182,24 +136,17 @@ int sphereIntersect(Object* object, double* rO, double* rD)
   // + rDZ^2t^2 - 2rDZrOZt + 2rDZtZ0+ rOZ^2 - 2rOzz0 + z0^2
   // - r^2 = 0
 
-  //t^2(rDx^2 + rDy^2 + rDZ^2t)
-  //+ t(- 2rDxrOx + 2rDxx0 - 2rDyrOy + 2rDyy0 - 2rDZrOZ + 2rDZZ0)
-  //+(rOx^2 - 2rOx x0 + x0^2 + rOy^2 - 2rOyy0 + y0^2 + rOZ^2 - 2rOzz0 + z0^2 - r^2) = 0
-//printf("%lf\n", 2*((rD[0]* (rO[0] - pnt[0])) + (rD[1]* (rO[1]- pnt[1])) + (rD[2]*(rO[2]- pnt[2]))));
-//printf("%lf\n", (rD[0]* (rO[0] - pnt[0])));
-//printf("%lf\n", (rD[1]* (rO[1]- pnt[1])));
+  //quadratic function
   double a = sqr(rD[0] - rO[0]) + sqr(rD[1]- rO[1]) + sqr(rD[2]- rO[2]);
-  //printf("a:%lf\n", a);
+
   double b = 2*((rD[0]* (rO[0] - pnt[0])) + (rD[1]* (rO[1]- pnt[1])) + (rD[2]*(rO[2]- pnt[2])));
-  //printf("b:%lf\n", b);
+
   double c = sqr(rO[0]- pnt[0]) + sqr(rO[1]-pnt[1]) + sqr(rO[2] -pnt[2])- sqr(r);
-  //printf("c:%lf\n", c);
+
   double det = sqr(b) - 4 * a * c;
-  //printf("%lf\n", det);
+
   if (det < 0)
     return -1;
-    //det = -1*det;
-
 
   det = sqrt(det);
 
@@ -216,9 +163,9 @@ int sphereIntersect(Object* object, double* rO, double* rD)
 
 Pixel* raycast(Object** objects, int pxW, int pxH)
 {
-  double cx = 0;
+  double cx = 0; //camera location
   double cy = 0;
-  double ch = 0;
+  double ch = 0; //initialize camera frame size
   double cw = 0;
 
   int i = 0;
@@ -226,49 +173,43 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
     if(objects[i]->kind == 2)
     {
       cw = objects[i]->camera.width;
-      //printf("%lf\n", cw);
       ch = objects[i]->camera.height;
-      //printf("%lf\n", ch);
       i++;
       break;
     }
   }
   if(cw == 0 || ch == 0)
   {
-    //ERROR
+    fprintf(stderr, "Error: No camera defined ");
     exit(1);
   }
-  double pixHeight = ch / pxH;
+  double pixHeight = ch / pxH; //size of the pixels
   double pixWidth = cw / pxW;
-  double rO[3] = {cx, cy, 0};
+
+  double rO[3] = {cx, cy, 0}; //origin of ray
+
   Pixel* image;
   image = malloc(sizeof(Pixel) * pxW * pxH); //Prepare memory for image data
-  for (int y = pxH; y > 0; y -= 1) {
+  for (int y = pxH; y >= 0; y -= 1) {
     for (int x = 0; x < pxW; x += 1) {
-      double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1.0};
+      double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1.0}; //location of current pixel
 
       normalize(rD);
-      for(int i = 0;i <3; i++)
-      {
-        //printf("rD[%i]:%lf ",i, rD[i]);
-      }
-      //printf("\n\n");
-      double bestT = INFINITY;
+
+      double bestT = INFINITY; //initialize the best intersection
       int bestO = -1;
       double* color;
       int i = 0;
-      while(objects[i] != NULL)
+      while(objects[i] != NULL) // check all objects for intersection
       {
 	       double t = 0;
 	        switch(objects[i]->kind)
           {
 	           case 0:
 	            t = planeIntersect(objects[i],rO, rD);
-              //printf("pl:%lf\n", t);
 	           break;
              case 1:
               t = sphereIntersect(objects[i],rO, rD);
-              //printf("sp:%lf\n", t);
              break;
              case 2:
              break;
@@ -276,17 +217,16 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
              // Horrible error
               exit(1);
 	        }
-          if (t > 0 && t < bestT)
+          if (t > 0 && t < bestT) // if the object is closer, replace as new best
           {
             bestT = t;
             bestO = i;
           }
           i++;
         }
-        //printf("best:%lf,%i\n", bestT, bestO);
         if (bestT > 0 && bestT != INFINITY) // Collect color data
         {
-          switch(objects[bestO]->kind)
+          switch(objects[bestO]->kind) // check object type
           {
              case 0:
               color = objects[bestO]->plane.color;
@@ -300,19 +240,15 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
              // Horrible error
               exit(1);
           }
-          image[pxH*(pxH - y-1) + x].r = color[0]*255;
+          image[pxH*(pxH - y-1) + x].r = color[0]*255; // store color data
           image[pxH*(pxH - y-1) + x].g = color[1]*255;
           image[pxH*(pxH - y-1) + x].b = color[2]*255;
-          //printf("r%d\n", image[pxH*(y) + x].r);
-          //printf("g%d\n", image[pxH*(y) + x].g);
-          //printf("b%d\n", image[pxH*(y) + x].b);
         }
         else
         {
 
         }
       }
-      //printf("\n");
   }
 
   return image;
@@ -321,42 +257,36 @@ Pixel* raycast(Object** objects, int pxW, int pxH)
 Object** parseScene(char* input)
 {
 
-  #ifdef DEBUG
-    printf("DEBUG MODE ENGAGE!\n");
-  #endif
   int c;
   int objectI = 0;
   Object** objects;
-  objects = malloc(sizeof(Object*)*129);
+  objects = malloc(sizeof(Object*)*129); //create object array
 
-  FILE* json = fopen(input,"r");
+  FILE* json = fopen(input,"r"); // read file
   if (json == NULL)
   {
     fprintf(stderr, "Error: Could not open file \"%s\"\n", input);
     exit(1);
   }
 
-  checkNextChar(json, '[');
+  checkNextChar(json, '['); //first char should be [
 
   while(1)
   {
     c = getC(json);
-    if (c == ']')
+    if (c == ']') // if end of file - done
     {
-      fprintf(stderr, "Error: This is the worst scene file EVER.\n");
+      fprintf(stderr, "Error: Empty scene file.\n");
       fclose(json);
       exit(1);
     }
-    if (c == '{')
+    if (c == '{') // if new object
     {
       checkNextString(json,"type");
       checkNextChar(json,':');
       char* value = nextString(json);
-      #ifdef DEBUG
-      printf("%s\n", value);
-      #endif
       objects[objectI] = malloc(sizeof(Object));
-      if (strcmp(value, "camera") == 0)
+      if (strcmp(value, "camera") == 0) //Get type of object
       {
         objects[objectI]->kind = 2;
       }
@@ -378,26 +308,20 @@ Object** parseScene(char* input)
       while (1)
       {
         c = nextChar(json);
-        if (c == '}')
+        if (c == '}') // if end of object
         {
       	  // stop parsing this object
-          objectI++;
+          objectI++; // move to next object index
       	  break;
       	}
-        else if (c == ',')
+        else if (c == ',') // if there is another parameter
         {
       	  // read another field
       	  char* key = nextString(json);
-          #ifdef DEBUG
-          printf("%s:", key);
-          #endif
       	  checkNextChar(json, ':');
-      	  if ((strcmp(key, "width") == 0))
+      	  if ((strcmp(key, "width") == 0)) //save values
               {
       	    double value = nextNumber(json);
-            #ifdef DEBUG
-            printf("%lf\n", value);
-            #endif
             if (objects[objectI]->kind == 2) {
               objects[objectI]->camera.width = value;
             }
@@ -411,9 +335,6 @@ Object** parseScene(char* input)
           else if ((strcmp(key, "height") == 0))
               {
       	    double value = nextNumber(json);
-            #ifdef DEBUG
-            printf("%lf\n", value);
-            #endif
               if (objects[objectI]->kind == 2) {
                 objects[objectI]->camera.height = value;
               }
@@ -427,9 +348,6 @@ Object** parseScene(char* input)
           else if ((strcmp(key, "radius") == 0))
               {
           	    double value = nextNumber(json);
-                #ifdef DEBUG
-                printf("%lf\n", value);
-                #endif
                 if (objects[objectI]->kind == 1)
                 {
                   objects[objectI]->sphere.radius = value;
@@ -450,26 +368,14 @@ Object** parseScene(char* input)
                     for(int i = 0;i<3;i++)
                     {
                     objects[objectI]->sphere.color[i] = value[i];
-                    #ifdef DEBUG
-                    printf("%lf ", value[i]);
-                    #endif
                     }
-                    #ifdef DEBUG
-                    printf("\n");
-                    #endif
                   }
                   else if (objects[objectI]->kind == 0)
                   {
                     for(int i = 0;i<3;i++)
                     {
                     objects[objectI]->plane.color[i] = value[i];
-                    #ifdef DEBUG
-                    printf("%lf ", value[i]);
-                    #endif
                     }
-                    #ifdef DEBUG
-                    printf("\n");
-                    #endif
                   }
                   else
                   {
@@ -486,26 +392,14 @@ Object** parseScene(char* input)
                   for(int i = 0;i<3;i++)
                   {
                   objects[objectI]->sphere.position[i] = value[i];
-                  #ifdef DEBUG
-                  printf("%lf ", value[i]);
-                  #endif
                   }
-                  #ifdef DEBUG
-                  printf("\n");
-                  #endif
                 }
                 else if (objects[objectI]->kind == 0)
                 {
                   for(int i = 0;i<3;i++)
                   {
                   objects[objectI]->plane.position[i] = value[i];
-                  #ifdef DEBUG
-                  printf("%lf ", value[i]);
-                  #endif
                   }
-                  #ifdef DEBUG
-                  printf("\n");
-                  #endif
                 }
                 else
                 {
@@ -522,13 +416,7 @@ Object** parseScene(char* input)
                   for(int i = 0;i<3;i++)
                   {
                   objects[objectI]->plane.normal[i] = value[i];
-                  #ifdef DEBUG
-                  printf("%lf ", value[i]);
-                  #endif
                   }
-                  #ifdef DEBUG
-                  printf("\n");
-                  #endif
                 }
                 else
                 {
@@ -557,7 +445,7 @@ Object** parseScene(char* input)
       {
         // noop
       }
-      else if (c == ']')
+      else if (c == ']') //if end of file
       {
         objects[objectI] = NULL;
         fclose(json);
@@ -575,9 +463,9 @@ Object** parseScene(char* input)
 
 int getC(FILE* json)
 {
-  int c = fgetc(json);
+  int c = fgetc(json); // get the character
 
-  if (c == '\n')
+  if (c == '\n') // count the number of lines
   {
     line += 1;
   }
@@ -599,7 +487,7 @@ int nextChar(FILE* json)
   }
   return c;
 }
-
+//check the character that is next, throw error if not correct
 int checkNextChar(FILE* json, int val)
 {
   int c = nextChar(json);
@@ -613,7 +501,7 @@ int checkNextChar(FILE* json, int val)
     exit(1);
   }
 }
-
+//collect the characters until the next "
 char* nextString(FILE* json)
 {
   char buffer[129];
@@ -640,7 +528,7 @@ char* nextString(FILE* json)
   buffer[i] = 0;
   return strdup(buffer);
 }
-
+//check if the string is the one defined.
 char* checkNextString(FILE* json, char* value)
 {
   char* key = nextString(json);
@@ -654,7 +542,7 @@ char* checkNextString(FILE* json, char* value)
     return key;
   }
 }
-
+//parse the values in a vector
 double* nextVector(FILE* json)
 {
   double* v = malloc(3*sizeof(double));
@@ -667,11 +555,10 @@ double* nextVector(FILE* json)
   checkNextChar(json, ']');
   return v;
 }
-
+//collect next numeric value
 double nextNumber(FILE* json)
 {
   float value;
   fscanf(json, "%f", &value);
-  printf("%f\n", value);
   return value;
 }
