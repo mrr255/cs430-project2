@@ -7,7 +7,8 @@
 
 //#define DEBUG
 
-typedef struct {
+typedef struct
+{
   int kind; // 0 = plane, 1 = sphere, 2 = camera
   double color[3];
   union {
@@ -22,8 +23,8 @@ typedef struct {
       int radius;
     } sphere;
     struct {
-      int width;
-      int height;
+      double width;
+      double height;
     } camera;
   };
 } Object;
@@ -41,8 +42,9 @@ char* nextString(FILE* json);
 char* checkNextString(FILE* json, char* value);
 double* nextVector(FILE* json);
 double nextNumber(FILE* json);
-int raycast(Object** objects, int pxW, int pxH);
+Pixel* raycast(Object** objects, int pxW, int pxH);
 int planeIntersect(Object* object, double* rO, double* rD);
+int imageWriter(Pixel* image, char* input, int pxW, int pxH);
 
 
 int line = 1;
@@ -63,10 +65,83 @@ static inline void normalize(double* v)
 int main (int c, char** argv)
 {
   Object** r = parseScene(argv[1]);
-  int pxW = 20;
-  int PxH = 20;
-  return 0;
+  int i = 0;
+  while (r[i] != NULL)
+  {
+    int t = r[i]->kind;
+    printf("%i\n", t);
+    if(t == 0) //plane
+    {
+      for(int j = 0; j <3;j++)
+      {
+        printf("%lf ", r[i]->plane.color[j]);
+      }
+      printf("\n");
+      for(int j = 0; j <3;j++)
+      {
+        printf("%lf ", r[i]->plane.position[j]);
+      }
+      printf("\n");
+      for(int j = 0; j <3;j++)
+      {
+        printf("%lf ", r[i]->plane.normal[j]);
+      }
+      printf("\n");
+
+    }
+    else if(t == 1)
+    {
+      for(int j = 0; j <3;j++)
+      {
+        printf("%lf ", r[i]->sphere.color[j]);
+      }
+      printf("\n");
+      for(int j = 0; j <3;j++)
+      {
+        printf("%lf ", r[i]->sphere.position[j]);
+      }
+      printf("\n");
+
+      printf("%i\n", r[i]->sphere.radius);
+    }
+    else if(t == 2)
+    {
+      printf("%lf\n", r[i]->camera.width);
+      printf("%lf\n", r[i]->camera.height);
+    }
+    i++;
+  }
+
+  int pxW = 100;
+  int pxH = 100;
+  Pixel* p = raycast(r,pxW,pxH);
+  int q = imageWriter(p, "hello.ppm",pxW, pxH);
+  return 1;
 }
+
+int imageWriter(Pixel* image, char* input, int pxW, int pxH)
+{
+  FILE* fw = fopen(input, "w"); // File Write
+
+  fprintf(fw, "P3\n");
+  fprintf(fw, "%i ", pxH);
+  fprintf(fw, "%i\n", pxW);
+  fprintf(fw,"%i\n",255);
+
+  //fwrite(image,sizeof(Pixel),pxW*pxH,fw);
+  int row, col;
+  for (row = 0; row < pxH; row += 1)
+    {
+    for (col = 0; col < pxW; col += 1)
+      {
+      fprintf(fw,"%i ", image[pxW*row + col].r);
+      fprintf(fw, "%i ", image[pxW*row + col].g);
+      fprintf(fw, "%i\n", image[pxW*row + col].b);
+      }
+    }
+  fclose(fw);
+}
+
 int planeIntersect(Object* object, double* rO, double* rD)
 {
   double* norm = object->plane.normal;
@@ -79,7 +154,8 @@ int planeIntersect(Object* object, double* rO, double* rD)
   double m = norm[0]*rD[0] + norm[1]*rD[1] + norm[2]*rD[2];
   double b = norm[0]*rO[0] + norm[1]*rO[1] + norm[2]*rO[2] - norm[0]*pnt[0] - norm[1]*pnt[1] - norm[2]*pnt[2];
   double t = (-1*b)/m;
-  if(t > 0)
+  //printf("%lf\n", t);
+  if(t >= 0)
   {
     return t;
   }
@@ -93,6 +169,10 @@ int sphereIntersect(Object* object, double* rO, double* rD)
 {
   double r = object->sphere.radius;
   double* pnt = object->sphere.position;
+  for( int i=0;i<3;i++)
+  {
+    //printf("%lf\n", pnt[i]);
+  }
   // (x-h)^2 + (y-j)^2 + (z-k)^2 = r^2
   // (rOx - t*rDx-x0)^2 + (rOy - t*rDy-y0)^2 + (rOz - t*rDz-z0)^2 = r^2
 
@@ -104,40 +184,50 @@ int sphereIntersect(Object* object, double* rO, double* rD)
   //t^2(rDx^2 + rDy^2 + rDZ^2t)
   //+ t(- 2rDxrOx + 2rDxx0 - 2rDyrOy + 2rDyy0 - 2rDZrOZ + 2rDZZ0)
   //+(rOx^2 - 2rOx x0 + x0^2 + rOy^2 - 2rOyy0 + y0^2 + rOZ^2 - 2rOzz0 + z0^2 - r^2) = 0
-  double a = sqr(rD[0]) + sqr(rD[1]) + sqr(rD[2]);
-  double b = -2* rD[0]* rO[0] + 2* rD[0]* pnt[0] -2* rD[1]* rO[1] + 2* rD[1]* pnt[1] -2* rD[2]* rO[2] + 2* rD[2]* pnt[2];
-  double c = sqr(rO[0]) - 2* rO[0]* pnt[0] + sqr(pnt[0]) + sqr(rO[1]) - 2* rO[1]*pnt[1] + sqr(pnt[1]) + sqr(rO[2]) - 2*rO[2]*pnt[2] + sqr(pnt[2]) - sqr(r);
-
+//printf("%lf\n", 2*((rD[0]* (rO[0] - pnt[0])) + (rD[1]* (rO[1]- pnt[1])) + (rD[2]*(rO[2]- pnt[2]))));
+//printf("%lf\n", (rD[0]* (rO[0] - pnt[0])));
+//printf("%lf\n", (rD[1]* (rO[1]- pnt[1])));
+  double a = sqr(rD[0] - rO[0]) + sqr(rD[1]- rO[1]) + sqr(rD[2]- rO[2]);
+  //printf("a:%lf\n", a);
+  double b = 2*((rD[0]* (rO[0] - pnt[0])) + (rD[1]* (rO[1]- pnt[1])) + (rD[2]*(rO[2]- pnt[2])));
+  //printf("b:%lf\n", b);
+  double c = sqr(rO[0]- pnt[0]) + sqr(rO[1]-pnt[1]) + sqr(rO[2] -pnt[2])- sqr(r);
+  //printf("c:%lf\n", c);
   double det = sqr(b) - 4 * a * c;
+  //printf("%lf\n", det);
   if (det < 0)
-    return -1;
+    det = -1*det;
+    //return -1;
 
   det = sqrt(det);
 
   double t0 = (-b - det) / (2*a);
-  if (t0 > 0)
+  if (t0 >= 0)
     return t0;
 
   double t1 = (-b + det) / (2*a);
-  if (t1 > 0)
+  if (t1 >= 0)
     return t1;
 
   return -1;
 }
 
-int raycast(Object** objects, int pxW, int pxH)
+Pixel* raycast(Object** objects, int pxW, int pxH)
 {
   double cx = 0;
   double cy = 0;
-  int i = 0;
   double ch = 0;
   double cw = 0;
 
+  int i = 0;
   while (objects[i] != NULL) {
     if(objects[i]->kind == 2)
     {
       cw = objects[i]->camera.width;
+      //printf("%lf\n", cw);
       ch = objects[i]->camera.height;
+      //printf("%lf\n", ch);
+      i++;
       break;
     }
   }
@@ -150,26 +240,32 @@ int raycast(Object** objects, int pxW, int pxH)
   double rO[3] = {cx, cy, 0};
   Pixel* image;
   image = malloc(sizeof(Pixel) * pxW * pxH); //Prepare memory for image data
-  for (int y = pxH; y > 0; y -= 1) {
+  for (int y = 0; y < pxH; y += 1) {
     for (int x = 0; x < pxW; x += 1) {
-      double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1};
+      double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1.0};
+
       normalize(rD);
+      for(int i = 0;i <3; i++)
+      {
+        //printf("rD[%i]:%lf ",i, rD[i]);
+      }
+      //printf("\n\n");
       double bestT = INFINITY;
       int bestO = -1;
       double* color;
-      for (int i=0; objects[i] != 0; i += 1)
+      int i = 0;
+      while(objects[i] != NULL)
       {
 	       double t = 0;
-
 	        switch(objects[i]->kind)
           {
 	           case 0:
 	            t = planeIntersect(objects[i],rO, rD);
-              color = objects[i]->plane.color;
+              printf("pl:%lf\n", t);
 	           break;
              case 1:
               t = sphereIntersect(objects[i],rO, rD);
-              color = objects[i]->plane.color;
+              printf("sp:%lf\n", t);
              break;
              case 2:
              break;
@@ -182,22 +278,41 @@ int raycast(Object** objects, int pxW, int pxH)
             bestT = t;
             bestO = i;
           }
+          i++;
         }
+        printf("best:%lf,%i\n", bestT, bestO);
         if (bestT > 0 && bestT != INFINITY) // Collect color data
         {
-          image[pxW*(pxH-y) + x].r = color[0];
-          image[pxW*(pxH-y) + x].g = color[1];
-          image[pxW*(pxH-y) + x].b = color[2];
+          switch(objects[bestO]->kind)
+          {
+             case 0:
+              color = objects[bestO]->plane.color;
+             break;
+             case 1:
+              color = objects[bestO]->sphere.color;
+             break;
+             case 2:
+             break;
+             default:
+             // Horrible error
+              exit(1);
+          }
+          image[pxH*(y) + x].r = color[0]*255;
+          image[pxH*(y) + x].g = color[1]*255;
+          image[pxH*(y) + x].b = color[2]*255;
+          //printf("r%d\n", image[pxH*(y) + x].r);
+          //printf("g%d\n", image[pxH*(y) + x].g);
+          //printf("b%d\n", image[pxH*(y) + x].b);
         }
         else
         {
 
         }
       }
-      printf("\n");
+      //printf("\n");
   }
 
-  return 0;
+  return image;
 }
 //Parsing JSON
 Object** parseScene(char* input)
@@ -253,6 +368,7 @@ Object** parseScene(char* input)
       else
       {
         fprintf(stderr, "Error: Unknown type, \"%s\", on line number %d.\n", value, line);
+        fclose(json);
         exit(1);
       }
 
@@ -285,6 +401,7 @@ Object** parseScene(char* input)
             else
             {
               fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+              fclose(json);
               exit(1);
             }
       	      }
@@ -300,6 +417,7 @@ Object** parseScene(char* input)
               else
               {
                 fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                fclose(json);
                 exit(1);
               }
       	      }
@@ -316,6 +434,7 @@ Object** parseScene(char* input)
                 else
                 {
                   fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
                   exit(1);
                 }
       	      }
@@ -352,6 +471,7 @@ Object** parseScene(char* input)
                   else
                   {
                     fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                    fclose(json);
                     exit(1);
                   }
       	       }
@@ -387,6 +507,7 @@ Object** parseScene(char* input)
                 else
                 {
                   fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
                   exit(1);
                 }
               }
@@ -409,11 +530,13 @@ Object** parseScene(char* input)
                 else
                 {
                   fprintf(stderr, "Error: Invalid property, \"%s\", on line number %d.\n", key, line);
+                  fclose(json);
                   exit(1);
                 }
               }
           else {
       	    fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n", key, line);
+            fclose(json);
               exit(1);
       	    //char* value = next_string(json);
       	       }
@@ -422,7 +545,8 @@ Object** parseScene(char* input)
         else
         {
       	  fprintf(stderr, "Error: Unexpected value on line %d\n", line);
-      	  exit(1);
+          fclose(json);
+          exit(1);
       	}
       }
       c = nextChar(json);
@@ -439,6 +563,7 @@ Object** parseScene(char* input)
       else
       {
         fprintf(stderr, "Error: Expecting ',' or ']' on line %d.\n", line);
+        fclose(json);
         exit(1);
       }
     }
@@ -542,8 +667,8 @@ double* nextVector(FILE* json)
 
 double nextNumber(FILE* json)
 {
-  double value;
-  fscanf(json, "%lf", &value);
-  // Error check this..
+  float value;
+  fscanf(json, "%f", &value);
+  printf("%f\n", value);
   return value;
 }
