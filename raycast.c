@@ -4,8 +4,9 @@
 #include <ctype.h>
 #include <math.h>
 
-int line = 1;
+
 //#define DEBUG
+
 typedef struct {
   int kind; // 0 = plane, 1 = sphere, 2 = camera
   double color[3];
@@ -27,6 +28,10 @@ typedef struct {
   };
 } Object;
 
+typedef struct Pixel
+  {
+  unsigned char r, g, b;
+  } Pixel;
 
 Object** parseScene(char* input);
 int nextChar(FILE* json);
@@ -36,6 +41,11 @@ char* nextString(FILE* json);
 char* checkNextString(FILE* json, char* value);
 double* nextVector(FILE* json);
 double nextNumber(FILE* json);
+int raycast(Object** objects, int pxW, int pxH);
+int planeIntersect(Object* object, double* rO, double* rD);
+
+
+int line = 1;
 
 static inline double sqr(double v)
 {
@@ -53,9 +63,99 @@ static inline void normalize(double* v)
 int main (int c, char** argv)
 {
   Object** r = parseScene(argv[1]);
+  int pxW = 20;
+  int PxH = 20;
   return 0;
 }
+int planeIntersect(Object* object, double* rO, double* rD)
+{
+  double* norm = object->plane.normal;
+  double* pnt = object->plane.position;
+  //a(x-x0) + b(y-y0)+c(z-z0) = 0
+  //a((rOx + t*rDx - x0)) + b((rOy + t*rDy - y0)) + c((rOz + t*rDz - z0))
+  //a*rOx + t*a*rDx - a*x0 + b*rOy + t*b*rDy - b*y0 + c*rOz + t*c*rDz - c*z0
+  //t(a*rDx+ b*rDy+ c*rDz) + (a*rOx + b*roy + c*rOz - a*xO - b*yO - c*zO) = 0
+  //t = -(a*rOx + b*roy + c*rOz - a*xO - b*yO - c*zO) / (a*rDx+ b*rDy+ c*rDz)
+  double m = norm[0]*rD[0] + norm[1]*rD[1] + norm[2]*rD[2];
+  double b = norm[0]*rO[0] + norm[1]*rO[1] + norm[2]*rO[2] - norm[0]*pnt[0] - norm[1]*pnt[1] - norm[2]*pnt[2];
+  double t = (-1*b)/m;
+  if(t > 0)
+  {
+    return t;
+  }
+  else
+  {
+    return -1;
+  }
+}
 
+int raycast(Object** objects, int pxW, int pxH)
+{
+  double cx = 0;
+  double cy = 0;
+  int i = 0;
+  double ch = 0;
+  double cw = 0;
+
+  while (objects[i] != NULL) {
+    if(objects[i]->kind == 2)
+    {
+      cw = objects[i]->camera.width;
+      ch = objects[i]->camera.height;
+      break;
+    }
+  }
+  if(cw == 0 || ch == 0)
+  {
+    //ERROR
+  }
+  double pixHeight = ch / pxH;
+  double pixWidth = cw / pxW;
+  double rO[3] = {cx, cy, 0};
+  Pixel* image;
+  image = malloc(sizeof(Pixel) * pxW * pxH); //Prepare memory for image data
+  for (int y = pxH; y > 0; y -= 1) {
+    for (int x = 0; x < pxW; x += 1) {
+      double rD[3] = {cx - (cw/2) + pixWidth * (x + 0.5),cy - (ch/2) + pixHeight * (y + 0.5),1};
+      normalize(rD);
+      double bestT = INFINITY;
+      int bestO = -1;
+      for (int i=0; objects[i] != 0; i += 1)
+      {
+	       double t = 0;
+
+	        switch(objects[i]->kind)
+          {
+	           case 0:
+	            t = planeIntersect(objects[i],rO, rD);
+	           break;
+             case 1:
+             break;
+             case 2:
+             break;
+             default:
+             // Horrible error
+              exit(1);
+	        }
+          if (t > 0 && t < bestT)
+          {
+            bestT = t;
+            bestO = i;
+          }
+        }
+        if (bestT > 0 && bestT != INFINITY) // Collect color data
+        {
+          //image[w*row + col].r =
+        }
+        else
+        {
+
+        }
+      }
+      printf("\n");
+  }
+  return 0;
+}
 //Parsing JSON
 Object** parseScene(char* input)
 {
